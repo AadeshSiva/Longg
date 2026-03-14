@@ -34,7 +34,6 @@
             position: fixed;
         }
 
-        /* ── TOOLBAR ── */
         #toolbar {
             position: fixed;
             top: 0;
@@ -116,7 +115,6 @@
             line-height: 1;
         }
 
-        /* ── DRAW BOTTOM SHEET ── */
         #draw-sheet {
             position: fixed;
             bottom: -130px;
@@ -208,7 +206,6 @@
             cursor: pointer;
         }
 
-        /* ── WORKSPACE ── */
         #workspace {
             position: fixed;
             top: var(--tb);
@@ -230,7 +227,6 @@
             pointer-events: none;
         }
 
-        /* sel-canvas on top */
         #sel-canvas {
             z-index: 2;
         }
@@ -254,7 +250,6 @@
             z-index: 3;
         }
 
-        /* ── ELEMENTS ── */
         .el {
             position: absolute;
             pointer-events: all;
@@ -296,7 +291,6 @@
             -webkit-user-drag: none;
         }
 
-        /* delete button */
         .del-btn {
             position: absolute;
             top: -14px;
@@ -325,7 +319,6 @@
             display: block;
         }
 
-        /* ── HINTS ── */
         #mode-hint {
             position: fixed;
             bottom: calc(20px + env(safe-area-inset-bottom));
@@ -557,21 +550,15 @@
     <div id="autosave-dot" title="Auto-save status"></div>
 
     <script>
-        // ═══════════════════════════════════════
-        // STATE
-        // ═══════════════════════════════════════
-        let mode = null;       // null='grab' | 'draw' | 'text'
+        let mode = null;
         let isErasing = false;
         let panX = 0, panY = 0;
         let zTop = 10;
 
         const strokes = [];
         let activeStroke = null;
-        let selectedStroke = null;   // stroke selected for move/resize
+        let selectedStroke = null;
 
-        // ═══════════════════════════════════════
-        // REFS
-        // ═══════════════════════════════════════
         const workspace = document.getElementById('workspace');
         const drawCanvas = document.getElementById('draw-canvas');
         const gridCanvas = document.getElementById('grid-canvas');
@@ -592,28 +579,19 @@
         const btnText = document.getElementById('btn-text');
         const btnImg = document.getElementById('btn-img');
         const btnDrawOpts = document.getElementById('btn-draw-opts');
-        const btnSave = document.getElementById('btn-save');
         const saveToast = document.getElementById('save-toast');
         const autosaveDot = document.getElementById('autosave-dot');
         const fileIn = document.getElementById('file-in');
         const doneBtn = document.getElementById('done-btn');
         const strokeDelBtn = document.getElementById('stroke-del-btn');
 
-        // ═══════════════════════════════════════
-        // CANVAS SETUP
-        // ═══════════════════════════════════════
         function resizeCanvases() {
             const w = workspace.clientWidth, h = workspace.clientHeight;
-            [drawCanvas, gridCanvas, selCanvas].forEach(c => {
-                c.width = w; c.height = h;
-            });
+            [drawCanvas, gridCanvas, selCanvas].forEach(c => { c.width = w; c.height = h; });
             redrawAll(); drawGrid(); drawSelection();
         }
         window.addEventListener('resize', () => setTimeout(resizeCanvases, 80));
 
-        // ═══════════════════════════════════════
-        // GRID
-        // ═══════════════════════════════════════
         function drawGrid() {
             const w = gridCanvas.width, h = gridCanvas.height;
             gctx.clearRect(0, 0, w, h);
@@ -627,15 +605,9 @@
                 }
         }
 
-        // ═══════════════════════════════════════
-        // COORDS
-        // ═══════════════════════════════════════
         function toWorld(sx, sy) { return [sx - panX, sy - panY]; }
         function toScreen(wx, wy) { return [wx + panX, wy + panY]; }
 
-        // ═══════════════════════════════════════
-        // STROKE RENDERING
-        // ═══════════════════════════════════════
         function redrawAll() {
             ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
             for (const s of strokes) renderStroke(ctx, s);
@@ -663,9 +635,6 @@
             c.stroke(); c.restore();
         }
 
-        // ═══════════════════════════════════════
-        // STROKE BOUNDING BOX
-        // ═══════════════════════════════════════
         function strokeBBox(s) {
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             for (const p of s.points) {
@@ -676,10 +645,7 @@
             return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 };
         }
 
-        // ═══════════════════════════════════════
-        // SELECTION OVERLAY
-        // ═══════════════════════════════════════
-        const HANDLE_R = 14;  // handle radius in screen px
+        const HANDLE_R = 14;
 
         function drawSelection() {
             sctx.clearRect(0, 0, selCanvas.width, selCanvas.height);
@@ -687,36 +653,26 @@
             const bb = strokeBBox(selectedStroke);
             const [sx, sy] = toScreen(bb.x, bb.y);
             const sw = bb.w, sh = bb.h;
-
-            // dashed box
             sctx.save();
-            sctx.strokeStyle = '#e63030';
+            sctx.strokeStyle = '#3636FF';
             sctx.lineWidth = 1.5;
             sctx.setLineDash([5, 4]);
             sctx.strokeRect(sx, sy, sw, sh);
             sctx.setLineDash([]);
-
-            // corner handles: TL, TR, BL, BR
-            const corners = [
-                [sx, sy], [sx + sw, sy], [sx, sy + sh], [sx + sw, sy + sh]
-            ];
+            const corners = [[sx, sy], [sx + sw, sy], [sx, sy + sh], [sx + sw, sy + sh]];
             for (const [cx, cy] of corners) {
                 sctx.beginPath(); sctx.arc(cx, cy, HANDLE_R, 0, Math.PI * 2);
                 sctx.fillStyle = '#fff'; sctx.fill();
-                sctx.strokeStyle = '#e63030'; sctx.lineWidth = 2; sctx.stroke();
+                sctx.strokeStyle = '#3636FF'; sctx.lineWidth = 2; sctx.stroke();
             }
             sctx.restore();
         }
 
-        // returns which corner handle (0=TL,1=TR,2=BL,3=BR) was hit, or -1
         function hitHandle(sx, sy) {
             if (!selectedStroke) return -1;
             const bb = strokeBBox(selectedStroke);
             const [bsx, bsy] = toScreen(bb.x, bb.y);
-            const corners = [
-                [bsx, bsy], [bsx + bb.w, bsy],
-                [bsx, bsy + bb.h], [bsx + bb.w, bsy + bb.h]
-            ];
+            const corners = [[bsx, bsy], [bsx + bb.w, bsy], [bsx, bsy + bb.h], [bsx + bb.w, bsy + bb.h]];
             for (let i = 0; i < corners.length; i++) {
                 const dx = sx - corners[i][0], dy = sy - corners[i][1];
                 if (Math.hypot(dx, dy) <= HANDLE_R + 6) return i;
@@ -724,15 +680,12 @@
             return -1;
         }
 
-        // hit-test a screen point against all strokes, returns stroke or null
         function hitStroke(sx, sy) {
             const [wx, wy] = toWorld(sx, sy);
-            // iterate newest first
             for (let i = strokes.length - 1; i >= 0; i--) {
                 const s = strokes[i];
                 const bb = strokeBBox(s);
                 if (wx >= bb.x && wx <= bb.x + bb.w && wy >= bb.y && wy <= bb.y + bb.h) {
-                    // fine test: distance to any segment
                     const thresh = Math.max(s.width / 2 + 8, 12);
                     for (let j = 1; j < s.points.length; j++) {
                         const p1 = s.points[j - 1], p2 = s.points[j];
@@ -752,9 +705,6 @@
             return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
         }
 
-        // ═══════════════════════════════════════
-        // PAN  (vertical only, downward)
-        // ═══════════════════════════════════════
         function applyPan(_, ny) {
             panX = 0;
             panY = Math.min(0, ny);
@@ -763,18 +713,9 @@
             panInfo.textContent = `↓ ${Math.round(-panY)}px`;
         }
 
-        // ═══════════════════════════════════════
-        // POINTER HANDLING
-        // ═══════════════════════════════════════
         const ptrs = {};
-        let panOrigin = null;
-        let pinchBase = null;
-        let drawActive = false;
-        let tapDown = null;
-
-        // stroke move/resize state
-        let strokeDrag = null;   // {origPoints, sx, sy}
-        let strokeResize = null;   // {origPoints, bbox, corner, sx, sy}
+        let panOrigin = null, pinchBase = null, drawActive = false, tapDown = null;
+        let strokeDrag = null, strokeResize = null;
 
         function wpos(e) {
             const r = workspace.getBoundingClientRect();
@@ -788,7 +729,6 @@
             const pids = Object.keys(ptrs);
             const pos = ptrs[e.pointerId];
 
-            // two-finger: pan (and cancel draw/stroke ops)
             if (pids.length >= 2) {
                 drawActive = false; activeStroke = null; strokeDrag = null; strokeResize = null;
                 redrawAll();
@@ -800,7 +740,6 @@
 
             tapDown = { x: pos.x, y: pos.y };
 
-            // DRAW mode
             if (mode === 'draw') {
                 drawActive = true;
                 const [wx, wy] = toWorld(pos.x, pos.y);
@@ -813,40 +752,26 @@
                 return;
             }
 
-            // GRAB mode
             if (mode === null) {
-                // check handle first
                 const h = hitHandle(pos.x, pos.y);
                 if (h !== -1 && selectedStroke) {
                     const bb = strokeBBox(selectedStroke);
-                    strokeResize = {
-                        origPoints: selectedStroke.points.map(p => ({ ...p })),
-                        bb, corner: h, sx: pos.x, sy: pos.y
-                    };
+                    strokeResize = { origPoints: selectedStroke.points.map(p => ({ ...p })), bb, corner: h, sx: pos.x, sy: pos.y };
                     return;
                 }
-
-                // check stroke hit
                 const hit = hitStroke(pos.x, pos.y);
                 if (hit) {
                     selectedStroke = hit;
-                    strokeDrag = {
-                        origPoints: hit.points.map(p => ({ ...p })),
-                        sx: pos.x, sy: pos.y
-                    };
+                    strokeDrag = { origPoints: hit.points.map(p => ({ ...p })), sx: pos.x, sy: pos.y };
                     strokeDelBtn.classList.add('show');
                     drawSelection();
                     return;
                 }
-
-                // deselect + pan
                 selectedStroke = null; strokeDrag = null; strokeResize = null;
                 strokeDelBtn.classList.remove('show');
                 drawSelection();
                 panOrigin = { y: pos.y, panY };
             }
-
-            // TEXT mode: handled on pointerup
         }, { passive: false });
 
         workspace.addEventListener('pointermove', e => {
@@ -855,7 +780,6 @@
             ptrs[e.pointerId] = pos;
             const pids = Object.keys(ptrs);
 
-            // two-finger pan
             if (pids.length >= 2 && pinchBase) {
                 const vals = Object.values(ptrs);
                 const cy = (vals[0].y + vals[1].y) / 2;
@@ -863,71 +787,33 @@
                 return;
             }
 
-            // drawing
             if (mode === 'draw' && drawActive && activeStroke) {
                 const [wx, wy] = toWorld(pos.x, pos.y);
                 activeStroke.points.push({ x: wx, y: wy });
                 redrawAll(); return;
             }
 
-            // stroke drag (move)
             if (strokeDrag && selectedStroke) {
-                const dx = pos.x - strokeDrag.sx;
-                const dy = pos.y - strokeDrag.sy;
-                selectedStroke.points = strokeDrag.origPoints.map(p => ({
-                    x: p.x + dx, y: p.y + dy
-                }));
+                const dx = pos.x - strokeDrag.sx, dy = pos.y - strokeDrag.sy;
+                selectedStroke.points = strokeDrag.origPoints.map(p => ({ x: p.x + dx, y: p.y + dy }));
                 redrawAll(); drawSelection(); return;
             }
 
-            // stroke resize via handle
             if (strokeResize && selectedStroke) {
                 const { origPoints, bb, corner, sx, sy } = strokeResize;
                 const dx = pos.x - sx, dy = pos.y - sy;
-
-                // anchor is the opposite corner in world coords
-                const anchors = [
-                    [bb.x + bb.w, bb.y + bb.h], // TL handle → anchor BR
-                    [bb.x, bb.y + bb.h], // TR handle → anchor BL
-                    [bb.x + bb.w, bb.y],        // BL handle → anchor TR
-                    [bb.x, bb.y]         // BR handle → anchor TL
-                ];
+                const anchors = [[bb.x + bb.w, bb.y + bb.h], [bb.x, bb.y + bb.h], [bb.x + bb.w, bb.y], [bb.x, bb.y]];
                 const [ax, ay] = anchors[corner];
-
-                // original dragged-corner world pos
-                const origCorners = [
-                    [bb.x, bb.y],
-                    [bb.x + bb.w, bb.y],
-                    [bb.x, bb.y + bb.h],
-                    [bb.x + bb.w, bb.y + bb.h]
-                ];
+                const origCorners = [[bb.x, bb.y], [bb.x + bb.w, bb.y], [bb.x, bb.y + bb.h], [bb.x + bb.w, bb.y + bb.h]];
                 const [ocx, ocy] = origCorners[corner];
-
-                // new corner pos (screen → world)
-                const [ncx, ncy] = toWorld(
-                    toScreen(ocx, ocy)[0] + dx,
-                    toScreen(ocx, ocy)[1] + dy
-                );
-
-                // scale factors (guard div-by-zero)
-                const origW = Math.abs(ocx - ax) || 1;
-                const origH = Math.abs(ocy - ay) || 1;
-                const newW = Math.abs(ncx - ax) || 0.001;
-                const newH = Math.abs(ncy - ay) || 0.001;
-                const scaleX = newW / origW;
-                const scaleY = newH / origH;
-
-                selectedStroke.points = origPoints.map(p => ({
-                    x: ax + (p.x - ax) * scaleX,
-                    y: ay + (p.y - ay) * scaleY
-                }));
+                const [ncx, ncy] = toWorld(toScreen(ocx, ocy)[0] + dx, toScreen(ocx, ocy)[1] + dy);
+                const scaleX = (Math.abs(ncx - ax) || 0.001) / (Math.abs(ocx - ax) || 1);
+                const scaleY = (Math.abs(ncy - ay) || 0.001) / (Math.abs(ocy - ay) || 1);
+                selectedStroke.points = origPoints.map(p => ({ x: ax + (p.x - ax) * scaleX, y: ay + (p.y - ay) * scaleY }));
                 redrawAll(); drawSelection(); return;
             }
 
-            // pan
-            if (panOrigin) {
-                applyPan(0, panOrigin.panY + pos.y - panOrigin.y);
-            }
+            if (panOrigin) applyPan(0, panOrigin.panY + pos.y - panOrigin.y);
         }, { passive: false });
 
         workspace.addEventListener('pointerup', e => {
@@ -935,7 +821,6 @@
             delete ptrs[e.pointerId];
             pinchBase = null;
 
-            // finish draw stroke
             if (mode === 'draw' && drawActive && activeStroke) {
                 if (activeStroke.points.length < 2) {
                     const p = activeStroke.points[0];
@@ -946,19 +831,11 @@
                 redrawAll(); autoSave(); return;
             }
 
-            // finish stroke drag/resize
-            if (strokeDrag || strokeResize) {
-                strokeDrag = null; strokeResize = null;
-                autoSave(); return;
-            }
+            if (strokeDrag || strokeResize) { strokeDrag = null; strokeResize = null; autoSave(); return; }
 
-            // text tap
             if (mode === 'text' && tapDown) {
                 const dx = pos.x - tapDown.x, dy = pos.y - tapDown.y;
-                if (Math.hypot(dx, dy) < 10) {
-                    addText(pos.x, pos.y);
-                    setMode(null);
-                }
+                if (Math.hypot(dx, dy) < 10) { addText(pos.x, pos.y); setMode(null); }
             }
 
             panOrigin = null; drawActive = false; tapDown = null;
@@ -972,16 +849,12 @@
             redrawAll();
         });
 
-        // clear element selection on workspace tap
         workspace.addEventListener('pointerdown', () => {
             document.querySelectorAll('.el.selected').forEach(el => el.classList.remove('selected'));
             const active = document.querySelector('.el-text[contenteditable="true"]');
             if (active) active.blur();
         }, { capture: true, passive: true });
 
-        // ═══════════════════════════════════════
-        // HINT
-        // ═══════════════════════════════════════
         let hintTimer;
         function showHint(msg) {
             clearTimeout(hintTimer);
@@ -990,25 +863,18 @@
             hintTimer = setTimeout(() => hint.classList.remove('show'), 2800);
         }
 
-        // ═══════════════════════════════════════
-        // MODE
-        // ═══════════════════════════════════════
         function setMode(m) {
             if (m === 'grab') m = null;
             if (mode === 'draw' && m !== 'draw') drawSheet.classList.remove('open');
             mode = (mode === m && m !== null) ? null : m;
-
-            // deselect stroke when leaving grab
             if (mode !== null) { selectedStroke = null; strokeDelBtn.classList.remove('show'); drawSelection(); }
-
             btnGrab.classList.toggle('active', mode === null);
             btnDraw.classList.toggle('active', mode === 'draw');
             btnText.classList.toggle('active', mode === 'text');
-
             if (mode === 'draw') {
                 doneBtn.classList.add('show');
                 btnDrawOpts.style.display = 'flex';
-                showHint('Draw freely • tap ⚙︎ for options');
+                showHint('Draw freely');
             } else if (mode === 'text') {
                 doneBtn.classList.remove('show');
                 btnDrawOpts.style.display = 'none';
@@ -1017,7 +883,7 @@
             } else {
                 doneBtn.classList.remove('show');
                 btnDrawOpts.style.display = 'none';
-                showHint('Tap a stroke to select • Drag to move • Pinch corners to resize');
+                showHint('Tap a stroke to select');
             }
         }
 
@@ -1025,23 +891,14 @@
         btnDraw.addEventListener('click', () => setMode('draw'));
         btnText.addEventListener('click', () => setMode('text'));
 
-        eraserBtn.addEventListener('click', () => {
-            isErasing = !isErasing;
-            eraserBtn.classList.toggle('active', isErasing);
-        });
-        clearBtn.addEventListener('click', () => {
-            strokes.length = 0; activeStroke = null;
-            selectedStroke = null; redrawAll(); drawSelection();
-        });
-        document.getElementById('sheet-handle').addEventListener('click', () => {
-            drawSheet.classList.remove('open');
-        });
+        eraserBtn.addEventListener('click', () => { isErasing = !isErasing; eraserBtn.classList.toggle('active', isErasing); });
+        clearBtn.addEventListener('click', () => { strokes.length = 0; activeStroke = null; selectedStroke = null; redrawAll(); drawSelection(); });
+        document.getElementById('sheet-handle').addEventListener('click', () => { drawSheet.classList.remove('open'); });
         btnDrawOpts.addEventListener('click', () => {
             drawSheet.classList.toggle('open');
             btnDrawOpts.classList.toggle('active', drawSheet.classList.contains('open'));
         });
 
-        // Stroke delete button
         strokeDelBtn.addEventListener('click', () => {
             if (selectedStroke) {
                 const idx = strokes.indexOf(selectedStroke);
@@ -1052,25 +909,19 @@
             }
         });
 
-        // Done button
         doneBtn.addEventListener('click', () => {
-            // if a text is being edited, blur it
             const editingText = document.querySelector('.el-text[contenteditable="true"]');
-            if (editingText) { editingText.blur(); }
-            // switch back to grab
+            if (editingText) editingText.blur();
             setMode('grab');
         });
 
-        // ═══════════════════════════════════════
-        // IMAGE
-        // ═══════════════════════════════════════
         btnImg.addEventListener('click', () => { setMode(null); fileIn.value = ''; fileIn.click(); });
         fileIn.addEventListener('change', e => {
             const f = e.target.files[0]; if (!f) return;
             const reader = new FileReader();
             reader.onload = ev => {
                 const [wx, wy] = toWorld(workspace.clientWidth / 2 - 80, workspace.clientHeight / 2 - 80);
-                addImage(ev.target.result, wx, wy);  // store base64 so it can be saved
+                addImage(ev.target.result, wx, wy);
                 autoSave();
             };
             reader.readAsDataURL(f);
@@ -1078,32 +929,20 @@
             showHint('Drag to move • 2-finger pinch to resize');
         });
 
-        // ═══════════════════════════════════════
-        // DELETE BUTTON
-        // ═══════════════════════════════════════
         function addDelBtn(parent) {
             const btn = document.createElement('div');
             btn.className = 'del-btn'; btn.textContent = '×';
-            btn.addEventListener('pointerdown', e => {
-                e.stopPropagation();
-                parent.remove();
-                setTimeout(autoSave, 50);
-            });
+            btn.addEventListener('pointerdown', e => { e.stopPropagation(); parent.remove(); setTimeout(autoSave, 50); });
             parent.appendChild(btn);
         }
 
-        // ═══════════════════════════════════════
-        // ADD TEXT
-        // ═══════════════════════════════════════
         function addText(sx, sy) {
             const [wx, wy] = toWorld(sx, sy);
             const el = document.createElement('div');
             el.className = 'el el-text editing';
             el.contentEditable = 'true';
-            el.style.left = wx + 'px';
-            el.style.top = wy + 'px';
-            el.style.fontSize = '18px';
-            el.style.zIndex = ++zTop;
+            el.style.left = wx + 'px'; el.style.top = wy + 'px';
+            el.style.fontSize = '18px'; el.style.zIndex = ++zTop;
             addDelBtn(el);
             layer.appendChild(el);
             doneBtn.classList.add('show');
@@ -1121,9 +960,7 @@
                 el.classList.remove('editing');
                 doneBtn.classList.remove('show');
                 if (!el.textContent.trim()) { el.remove(); autoSave(); return; }
-                makeDraggable(el);
-                makePinchFontResize(el);
-                autoSave();
+                makeDraggable(el); makePinchFontResize(el); autoSave();
             }
 
             el.addEventListener('blur', finishEdit);
@@ -1132,163 +969,74 @@
             let lastTap = 0;
             el.addEventListener('touchend', () => {
                 const now = Date.now();
-                if (now - lastTap < 320) {
-                    el.contentEditable = 'true';
-                    el.classList.add('editing');
-                    el.style.zIndex = ++zTop;
-                    doneBtn.classList.add('show');
-                    setTimeout(() => el.focus(), 30);
-                }
+                if (now - lastTap < 320) { el.contentEditable = 'true'; el.classList.add('editing'); el.style.zIndex = ++zTop; doneBtn.classList.add('show'); setTimeout(() => el.focus(), 30); }
                 lastTap = now;
             });
-            el.addEventListener('dblclick', () => {
-                el.contentEditable = 'true';
-                el.classList.add('editing');
-                el.style.zIndex = ++zTop;
-                doneBtn.classList.add('show');
-                el.focus();
-            });
+            el.addEventListener('dblclick', () => { el.contentEditable = 'true'; el.classList.add('editing'); el.style.zIndex = ++zTop; doneBtn.classList.add('show'); el.focus(); });
         }
 
-        // ═══════════════════════════════════════
-        // TEXT PINCH — resize font size
-        // ═══════════════════════════════════════
         function makePinchFontResize(el) {
             const tPtrs = {};
             let pinchStartDist = null, pinchStartSize = null;
-
-            function tDist() {
-                const pts = Object.values(tPtrs);
-                if (pts.length < 2) return null;
-                return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-            }
-
+            function tDist() { const pts = Object.values(tPtrs); if (pts.length < 2) return null; return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y); }
             el.addEventListener('pointerdown', e => {
                 tPtrs[e.pointerId] = { x: e.clientX, y: e.clientY };
-                if (Object.keys(tPtrs).length === 2) {
-                    e.stopPropagation();
-                    pinchStartDist = tDist();
-                    pinchStartSize = parseFloat(el.style.fontSize) || 18;
-                }
+                if (Object.keys(tPtrs).length === 2) { e.stopPropagation(); pinchStartDist = tDist(); pinchStartSize = parseFloat(el.style.fontSize) || 18; }
             });
-
             el.addEventListener('pointermove', e => {
                 if (!(e.pointerId in tPtrs)) return;
                 tPtrs[e.pointerId] = { x: e.clientX, y: e.clientY };
-                if (Object.keys(tPtrs).length >= 2 && pinchStartDist) {
-                    e.stopPropagation(); e.preventDefault();
-                    const scale = tDist() / pinchStartDist;
-                    const newSize = Math.max(8, Math.min(120, pinchStartSize * scale));
-                    el.style.fontSize = newSize + 'px';
-                }
+                if (Object.keys(tPtrs).length >= 2 && pinchStartDist) { e.stopPropagation(); e.preventDefault(); el.style.fontSize = Math.max(8, Math.min(120, pinchStartSize * tDist() / pinchStartDist)) + 'px'; }
             }, { passive: false });
-
-            function endTPinch(e) {
-                delete tPtrs[e.pointerId];
-                if (Object.keys(tPtrs).length < 2) pinchStartDist = null;
-            }
-            el.addEventListener('pointerup', endTPinch);
-            el.addEventListener('pointercancel', endTPinch);
+            function endTPinch(e) { delete tPtrs[e.pointerId]; if (Object.keys(tPtrs).length < 2) pinchStartDist = null; }
+            el.addEventListener('pointerup', endTPinch); el.addEventListener('pointercancel', endTPinch);
         }
 
-        // ═══════════════════════════════════════
-        // ADD IMAGE
-        // ═══════════════════════════════════════
         function addImage(url, wx, wy, w, h) {
             const wrap = document.createElement('div');
             wrap.className = 'el el-img';
-            wrap.style.left = wx + 'px'; wrap.style.top = wy + 'px';
-            wrap.style.zIndex = ++zTop;
-
+            wrap.style.left = wx + 'px'; wrap.style.top = wy + 'px'; wrap.style.zIndex = ++zTop;
             const img = document.createElement('img');
             img.src = url; img.draggable = false;
             if (w) { img.style.width = w; img.style.maxWidth = 'none'; }
             if (h) { img.style.height = h; img.style.maxHeight = 'none'; }
-
-            wrap.appendChild(img);
-            addDelBtn(wrap);
-            layer.appendChild(wrap);
-
-            makeDraggable(wrap);
-            makeImgPinchResize(wrap, img);
+            wrap.appendChild(img); addDelBtn(wrap); layer.appendChild(wrap);
+            makeDraggable(wrap); makeImgPinchResize(wrap, img);
         }
 
-        // ═══════════════════════════════════════
-        // DRAG — pointer capture, no hold delay
-        // ═══════════════════════════════════════
         function makeDraggable(el) {
             let pid = null, sx, sy, ox, oy;
-
             el.addEventListener('pointerdown', e => {
                 if (e.target.classList.contains('del-btn')) return;
                 if (el.contentEditable === 'true') return;
-                e.stopPropagation();
-                el.classList.add('selected');
-                pid = e.pointerId;
-                el.setPointerCapture(pid);
+                e.stopPropagation(); el.classList.add('selected');
+                pid = e.pointerId; el.setPointerCapture(pid);
                 sx = e.clientX; sy = e.clientY;
-                ox = parseFloat(el.style.left) || 0;
-                oy = parseFloat(el.style.top) || 0;
+                ox = parseFloat(el.style.left) || 0; oy = parseFloat(el.style.top) || 0;
                 el.style.zIndex = ++zTop;
             });
-
-            el.addEventListener('pointermove', e => {
-                if (e.pointerId !== pid) return;
-                e.stopPropagation();
-                el.style.left = (ox + e.clientX - sx) + 'px';
-                el.style.top = (oy + e.clientY - sy) + 'px';
-            });
-
+            el.addEventListener('pointermove', e => { if (e.pointerId !== pid) return; e.stopPropagation(); el.style.left = (ox + e.clientX - sx) + 'px'; el.style.top = (oy + e.clientY - sy) + 'px'; });
             el.addEventListener('pointerup', e => { if (e.pointerId === pid) pid = null; });
             el.addEventListener('pointercancel', () => { pid = null; });
         }
 
-        // ═══════════════════════════════════════
-        // IMAGE PINCH RESIZE
-        // ═══════════════════════════════════════
         function makeImgPinchResize(wrap, img) {
-            const iPtrs = {};
-            let pinchStartDist = null, pinchStartW = null, pinchStartH = null;
-
-            function iDist() {
-                const pts = Object.values(iPtrs);
-                if (pts.length < 2) return null;
-                return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-            }
-
+            const iPtrs = {}; let pinchStartDist = null, pinchStartW = null, pinchStartH = null;
+            function iDist() { const pts = Object.values(iPtrs); if (pts.length < 2) return null; return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y); }
             wrap.addEventListener('pointerdown', e => {
                 iPtrs[e.pointerId] = { x: e.clientX, y: e.clientY };
-                if (Object.keys(iPtrs).length === 2) {
-                    e.stopPropagation();
-                    pinchStartDist = iDist();
-                    pinchStartW = img.offsetWidth;
-                    pinchStartH = img.offsetHeight;
-                }
+                if (Object.keys(iPtrs).length === 2) { e.stopPropagation(); pinchStartDist = iDist(); pinchStartW = img.offsetWidth; pinchStartH = img.offsetHeight; }
             });
-
             wrap.addEventListener('pointermove', e => {
                 if (!(e.pointerId in iPtrs)) return;
                 iPtrs[e.pointerId] = { x: e.clientX, y: e.clientY };
-                if (Object.keys(iPtrs).length >= 2 && pinchStartDist) {
-                    e.stopPropagation(); e.preventDefault();
-                    const scale = iDist() / pinchStartDist;
-                    img.style.width = Math.max(40, pinchStartW * scale) + 'px';
-                    img.style.height = Math.max(40, pinchStartH * scale) + 'px';
-                    img.style.maxWidth = img.style.maxHeight = 'none';
-                }
+                if (Object.keys(iPtrs).length >= 2 && pinchStartDist) { e.stopPropagation(); e.preventDefault(); const scale = iDist() / pinchStartDist; img.style.width = Math.max(40, pinchStartW * scale) + 'px'; img.style.height = Math.max(40, pinchStartH * scale) + 'px'; img.style.maxWidth = img.style.maxHeight = 'none'; }
             }, { passive: false });
-
-            function endIPinch(e) {
-                delete iPtrs[e.pointerId];
-                if (Object.keys(iPtrs).length < 2) pinchStartDist = null;
-            }
-            wrap.addEventListener('pointerup', endIPinch);
-            wrap.addEventListener('pointercancel', endIPinch);
+            function endIPinch(e) { delete iPtrs[e.pointerId]; if (Object.keys(iPtrs).length < 2) pinchStartDist = null; }
+            wrap.addEventListener('pointerup', endIPinch); wrap.addEventListener('pointercancel', endIPinch);
         }
 
-        // ═══════════════════════════════════════
-        // SAVE / LOAD  (localStorage)
-        // ═══════════════════════════════════════
+        // SAVE / LOAD
         const SAVE_KEY = 'longg_canvas_v1';
         let saveTimer = null;
 
@@ -1303,41 +1051,21 @@
         }
 
         function saveAll() {
-            // collect elements
             const els = [];
             layer.querySelectorAll('.el').forEach(el => {
                 if (el.classList.contains('el-text')) {
-                    els.push({
-                        type: 'text',
-                        x: parseFloat(el.style.left) || 0,
-                        y: parseFloat(el.style.top) || 0,
-                        fontSize: el.style.fontSize || '18px',
-                        color: el.style.color || '#111',
-                        content: el.innerText
-                    });
+                    els.push({ type: 'text', x: parseFloat(el.style.left) || 0, y: parseFloat(el.style.top) || 0, fontSize: el.style.fontSize || '18px', color: el.style.color || '#111', content: el.innerText });
                 } else if (el.classList.contains('el-img')) {
                     const img = el.querySelector('img');
                     if (!img) return;
-                    // only save if it's already base64 (blob URLs are temporary)
                     const src = img.src;
                     if (!src.startsWith('data:')) return;
-                    els.push({
-                        type: 'image',
-                        x: parseFloat(el.style.left) || 0,
-                        y: parseFloat(el.style.top) || 0,
-                        w: img.style.width || img.offsetWidth + 'px',
-                        h: img.style.height || '',
-                        src
-                    });
+                    els.push({ type: 'image', x: parseFloat(el.style.left) || 0, y: parseFloat(el.style.top) || 0, w: img.style.width || img.offsetWidth + 'px', h: img.style.height || '', src });
                 }
             });
-
             const data = { strokes, panY, els };
-            try {
-                localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-            } catch (e) {
-                showSaveToast('⚠ Storage full');
-            }
+            try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }
+            catch (e) { showSaveToast('⚠ Storage full'); }
         }
 
         function loadAll() {
@@ -1347,42 +1075,26 @@
             let data;
             try { data = JSON.parse(raw); } catch (e) { return; }
 
-            // restore strokes
-            if (Array.isArray(data.strokes)) {
-                strokes.length = 0;
-                data.strokes.forEach(s => strokes.push(s));
-            }
+            if (Array.isArray(data.strokes)) { strokes.length = 0; data.strokes.forEach(s => strokes.push(s)); }
 
-            // restore pan
             if (typeof data.panY === 'number') {
                 panX = 0; panY = data.panY;
                 layer.style.transform = `translate(0px,${panY}px)`;
                 panInfo.textContent = `↓ ${Math.round(-panY)}px`;
             }
 
-            // restore elements
             if (Array.isArray(data.els)) {
                 data.els.forEach(d => {
                     if (d.type === 'text') {
                         const el = document.createElement('div');
                         el.className = 'el el-text';
                         el.style.left = d.x + 'px'; el.style.top = d.y + 'px';
-                        el.style.fontSize = d.fontSize || '18px';
-                        el.style.color = d.color || '#111';
-                        el.innerText = d.content;
-                        el.contentEditable = 'false';
-                        el.style.zIndex = ++zTop;
-                        addDelBtn(el);
-                        layer.appendChild(el);
-                        makeDraggable(el);
-                        makePinchFontResize(el);
-                        // re-edit on double-tap / dblclick
+                        el.style.fontSize = d.fontSize || '18px'; el.style.color = d.color || '#111';
+                        el.innerText = d.content; el.contentEditable = 'false'; el.style.zIndex = ++zTop;
+                        addDelBtn(el); layer.appendChild(el);
+                        makeDraggable(el); makePinchFontResize(el);
                         let lastTap = 0;
-                        el.addEventListener('touchend', () => {
-                            const now = Date.now();
-                            if (now - lastTap < 320) openTextEdit(el);
-                            lastTap = now;
-                        });
+                        el.addEventListener('touchend', () => { const now = Date.now(); if (now - lastTap < 320) openTextEdit(el); lastTap = now; });
                         el.addEventListener('dblclick', () => openTextEdit(el));
                     } else if (d.type === 'image') {
                         addImage(d.src, d.x, d.y, d.w, d.h);
@@ -1393,37 +1105,26 @@
         }
 
         function openTextEdit(el) {
-            el.contentEditable = 'true';
-            el.classList.add('editing');
-            el.style.zIndex = ++zTop;
+            el.contentEditable = 'true'; el.classList.add('editing'); el.style.zIndex = ++zTop;
             doneBtn.classList.add('show');
             setTimeout(() => el.focus(), 30);
             el.addEventListener('blur', function onBlur() {
                 el.removeEventListener('blur', onBlur);
-                el.contentEditable = 'false';
-                el.classList.remove('editing');
+                el.contentEditable = 'false'; el.classList.remove('editing');
                 doneBtn.classList.remove('show');
-                if (!el.textContent.trim()) { el.remove(); }
+                if (!el.textContent.trim()) el.remove();
                 autoSave();
             }, { once: true });
         }
 
         function showSaveToast(msg) {
             clearTimeout(showSaveToast._t);
-            saveToast.textContent = msg;
-            saveToast.classList.add('show');
+            saveToast.textContent = msg; saveToast.classList.add('show');
             showSaveToast._t = setTimeout(() => saveToast.classList.remove('show'), 2000);
         }
 
-        // Manual save button
-        btnSave.addEventListener('click', () => {
-            saveAll();
-            showSaveToast('✓ Saved');
-        });
 
-        // ═══════════════════════════════════════
         // INIT
-        // ═══════════════════════════════════════
         layer.style.transform = 'translate(0px,0px)';
         resizeCanvases();
         loadAll();
