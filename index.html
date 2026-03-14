@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <title>Longg</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500&display=swap');
+
+        :root {
+            --tb: 58px;
+            --red: #3636FF;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #f8f8f8;
+            font-family: 'DM Sans', sans-serif;
+            overscroll-behavior: none;
+            position: fixed;
+        }
+
+        /* ── TOOLBAR ── */
+        #toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--tb);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 14px;
+            padding-top: env(safe-area-inset-top);
+            z-index: 300;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+        }
+
+        .logo-svg {
+            height: 28px;
+            width: auto;
+            flex-shrink: 0;
+            user-select: none;
+            display: block;
+        }
+
+        .tools {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            padding-right: 2px;
+        }
+
+        .tools::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tool-btn {
+            flex-shrink: 0;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: none;
+            background: #f0f0f0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s, box-shadow 0.15s;
+            -webkit-appearance: none;
+            touch-action: manipulation;
+        }
+
+        .tool-btn:active {
+            opacity: 0.75;
+        }
+
+        .tool-btn.active {
+            background: var(--red);
+        }
+
+        .tool-btn.active svg path,
+        .tool-btn.active svg rect,
+        .tool-btn.active svg circle {
+            stroke: #fff;
+        }
+
+        .tool-btn.active .t-icon {
+            color: #fff;
+        }
+
+        .t-icon {
+            font-weight: 700;
+            font-size: 17px;
+            color: #333;
+            line-height: 1;
+        }
+
+        /* ── DRAW BOTTOM SHEET ── */
+        #draw-sheet {
+            position: fixed;
+            bottom: -130px;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-radius: 18px 18px 0 0;
+            box-shadow: 0 -4px 24px rgba(100, 100, 100, 0.074);
+            padding: 14px 20px 28px;
+            padding-bottom: calc(28px + env(safe-area-inset-bottom));
+            z-index: 250;
+            transition: bottom 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        #draw-sheet.open {
+            bottom: 0;
+        }
+
+        .sheet-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sheet-label {
+            font-size: 13px;
+            color: #888;
+            width: 48px;
+            flex-shrink: 0;
+        }
+
+        #draw-color {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 1.5px #ddd;
+            cursor: pointer;
+            -webkit-appearance: none;
+            flex-shrink: 0;
+            padding: 0;
+        }
+
+        #draw-color::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        #draw-color::-webkit-color-swatch {
+            border: none;
+            border-radius: 50%;
+        }
+
+        #brush-sz {
+            flex: 1;
+            accent-color: var(--red);
+            height: 4px;
+            cursor: pointer;
+        }
+
+        .sheet-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1.5px solid #e0e0e0;
+            background: #fafafa;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            color: #444;
+            cursor: pointer;
+            text-align: center;
+            touch-action: manipulation;
+        }
+
+        .sheet-btn.active {
+            background: #222;
+            color: #fff;
+            border-color: #222;
+        }
+
+        .sheet-handle {
+            width: 40px;
+            height: 4px;
+            background: #ddd;
+            border-radius: 2px;
+            margin: 0 auto 6px;
+            cursor: pointer;
+        }
+
+        /* ── WORKSPACE ── */
+        #workspace {
+            position: fixed;
+            top: var(--tb);
+            left: 0;
+            right: 0;
+            bottom: 0;
+            touch-action: none;
+            overflow: hidden;
+            background: #f8f8f8;
+        }
+
+        #grid-canvas,
+        #draw-canvas,
+        #sel-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* sel-canvas on top */
+        #sel-canvas {
+            z-index: 2;
+        }
+
+        #draw-canvas {
+            z-index: 1;
+        }
+
+        #grid-canvas {
+            z-index: 0;
+        }
+
+        #el-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            pointer-events: none;
+            will-change: transform;
+            z-index: 3;
+        }
+
+        /* ── ELEMENTS ── */
+        .el {
+            position: absolute;
+            pointer-events: all;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .el-text {
+            font-size: 18px;
+            color: #111;
+            min-width: 20px;
+            min-height: 28px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            line-height: 1.5;
+            white-space: pre;
+            cursor: default;
+        }
+
+        .el-text.editing {
+            outline: none;
+            border-bottom: 2.5px solid var(--red);
+            background: rgba(230, 48, 48, 0.04);
+            cursor: text;
+        }
+
+        .el-img {
+            position: relative;
+            display: inline-block;
+        }
+
+        .el-img img {
+            display: block;
+            width: 160px;
+            height: auto;
+            border-radius: 8px;
+            pointer-events: none;
+            -webkit-user-drag: none;
+        }
+
+        /* delete button */
+        .del-btn {
+            position: absolute;
+            top: -14px;
+            right: -14px;
+            width: 26px;
+            height: 26px;
+            background: #111;
+            color: #fff;
+            border: 2.5px solid #fff;
+            border-radius: 50%;
+            font-size: 15px;
+            line-height: 22px;
+            text-align: center;
+            cursor: pointer;
+            touch-action: manipulation;
+            display: none;
+            z-index: 30;
+            font-weight: 700;
+        }
+
+        .el:hover>.del-btn {
+            display: block;
+        }
+
+        .el.selected>.del-btn {
+            display: block;
+        }
+
+        /* ── HINTS ── */
+        #mode-hint {
+            position: fixed;
+            bottom: calc(20px + env(safe-area-inset-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.74);
+            color: #fff;
+            font-size: 13px;
+            padding: 9px 20px;
+            border-radius: 22px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.22s;
+            white-space: nowrap;
+            z-index: 400;
+        }
+
+        #mode-hint.show {
+            opacity: 1;
+        }
+
+        #save-toast {
+            position: fixed;
+            top: calc(var(--tb) + 12px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111;
+            color: #fff;
+            font-size: 13px;
+            padding: 9px 20px;
+            border-radius: 22px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+            z-index: 500;
+        }
+
+        #save-toast.show {
+            opacity: 1;
+        }
+
+        #pan-info {
+            position: fixed;
+            bottom: calc(8px + env(safe-area-inset-bottom));
+            right: 14px;
+            font-size: 10px;
+            color: #bbb;
+            pointer-events: none;
+            z-index: 200;
+        }
+
+        #footer {
+            position: fixed;
+            bottom: calc(8px + env(safe-area-inset-bottom));
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #000000;
+            pointer-events: all;
+            z-index: 2000;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        #footer a {
+            color: var(--red);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        #footer a:hover {
+            text-decoration: underline;
+        }
+
+        #autosave-dot {
+            position: fixed;
+            top: calc(var(--tb) + 8px);
+            right: 10px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #ccc;
+            z-index: 400;
+            pointer-events: none;
+            transition: background 0.3s;
+        }
+
+        #autosave-dot.saving {
+            background: var(--red);
+        }
+
+        #autosave-dot.saved {
+            background: #4caf50;
+        }
+
+        #stroke-del-btn {
+            position: fixed;
+            bottom: calc(18px + env(safe-area-inset-bottom));
+            left: 18px;
+            background: #111;
+            color: #fff;
+            border: none;
+            border-radius: 22px;
+            padding: 11px 22px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+            z-index: 500;
+            display: none;
+            touch-action: manipulation;
+            transition: opacity 0.15s, transform 0.15s;
+        }
+
+        #stroke-del-btn.show {
+            display: block;
+        }
+
+        #stroke-del-btn:active {
+            opacity: 0.7;
+            transform: scale(0.96);
+        }
+
+        #done-btn {
+            position: fixed;
+            bottom: calc(18px + env(safe-area-inset-bottom));
+            right: 18px;
+            background: var(--red);
+            color: #fff;
+            border: none;
+            border-radius: 22px;
+            padding: 11px 24px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 500;
+            display: none;
+            touch-action: manipulation;
+            letter-spacing: 0.01em;
+            transition: opacity 0.15s, transform 0.15s;
+        }
+
+        #done-btn.show {
+            display: block;
+        }
+
+        #done-btn:active {
+            opacity: 0.8;
+            transform: scale(0.96);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="toolbar">
+        <img src="longg.svg" alt="Longg" class="logo-svg">
+        <div class="tools">
+            <button class="tool-btn active" id="btn-grab" title="Pan">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 11V8a2 2 0 0 0-4 0v3" />
+                    <path d="M14 10V7a2 2 0 0 0-4 0v3" />
+                    <path d="M10 10.5V5a2 2 0 0 0-4 0v9" />
+                    <path d="M6 14s-1-1.5-2.5-1.5S1 14 1 15.5C1 19 5 21 9 22h2c4 0 7-2 7-6V11a2 2 0 0 0-4 0" />
+                </svg>
+            </button>
+            <button class="tool-btn" id="btn-draw" title="Draw">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+            </button>
+            <button class="tool-btn" id="btn-draw-opts" title="Draw options" style="display:none">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+                    <line x1="12" y1="2" x2="12" y2="5" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                </svg>
+            </button>
+            <button class="tool-btn" id="btn-text" title="Text">
+                <span class="t-icon">T</span>
+            </button>
+            <button class="tool-btn" id="btn-img" title="Image">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <path d="m21 15-5-5L5 21" />
+                </svg>
+            </button>
+            <input type="file" id="file-in" accept="image/*" style="display:none">
+        </div>
+    </div>
+
+    <div id="workspace">
+        <canvas id="grid-canvas"></canvas>
+        <canvas id="draw-canvas"></canvas>
+        <canvas id="sel-canvas"></canvas>
+        <div id="el-layer"></div>
+    </div>
+
+    <div id="draw-sheet">
+        <div class="sheet-handle" id="sheet-handle"></div>
+        <div class="sheet-row">
+            <span class="sheet-label">Color</span>
+            <input type="color" id="draw-color" value="#e63030">
+            <span class="sheet-label" style="text-align:right">Size</span>
+            <input type="range" id="brush-sz" min="1" max="30" value="4">
+        </div>
+        <div class="sheet-row">
+            <button class="sheet-btn" id="eraser-btn">⌫ Eraser</button>
+            <button class="sheet-btn" id="clear-btn">✕ Clear all</button>
+        </div>
+    </div>
+
+    <div id="mode-hint"></div>
+    <div id="save-toast"></div>
+    <button id="stroke-del-btn">Remove</button>
+    <button id="done-btn">Done</button>
+    <div id="pan-info">↓ 0px</div>
+    <div id="footer">made by <a href="https://aadeshsiva.vercel.app/" target="_blank">@me</a></div>
+    <div id="autosave-dot" title="Auto-save status"></div>
+
+    <script>
+        // ═══════════════════════════════════════
+        // STATE
+        // ═══════════════════════════════════════
+        let mode = null;       // null='grab' | 'draw' | 'text'
+        let isErasing = false;
+        let panX = 0, panY = 0;
+        let zTop = 10;
+
+        const strokes = [];
+        let activeStroke = null;
+        let selectedStroke = null;   // stroke selected for move/resize
+
+        // ═══════════════════════════════════════
+        // REFS
+        // ═══════════════════════════════════════
+        const workspace = document.getElementById('workspace');
+        const drawCanvas = document.getElementById('draw-canvas');
+        const gridCanvas = document.getElementById('grid-canvas');
+        const selCanvas = document.getElementById('sel-canvas');
+        const layer = document.getElementById('el-layer');
+        const ctx = drawCanvas.getContext('2d');
+        const gctx = gridCanvas.getContext('2d');
+        const sctx = selCanvas.getContext('2d');
+        const hint = document.getElementById('mode-hint');
+        const panInfo = document.getElementById('pan-info');
+        const drawSheet = document.getElementById('draw-sheet');
+        const drawColor = document.getElementById('draw-color');
+        const brushSz = document.getElementById('brush-sz');
+        const eraserBtn = document.getElementById('eraser-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const btnGrab = document.getElementById('btn-grab');
+        const btnDraw = document.getElementById('btn-draw');
+        const btnText = document.getElementById('btn-text');
+        const btnImg = document.getElementById('btn-img');
+        const btnDrawOpts = document.getElementById('btn-draw-opts');
+        const btnSave = document.getElementById('btn-save');
+        const saveToast = document.getElementById('save-toast');
+        const autosaveDot = document.getElementById('autosave-dot');
+        const fileIn = document.getElementById('file-in');
+        const doneBtn = document.getElementById('done-btn');
+        const strokeDelBtn = document.getElementById('stroke-del-btn');
+
+        // ═══════════════════════════════════════
+        // CANVAS SETUP
+        // ═══════════════════════════════════════
+        function resizeCanvases() {
+            const w = workspace.clientWidth, h = workspace.clientHeight;
+            [drawCanvas, gridCanvas, selCanvas].forEach(c => {
+                c.width = w; c.height = h;
+            });
+            redrawAll(); drawGrid(); drawSelection();
+        }
+        window.addEventListener('resize', () => setTimeout(resizeCanvases, 80));
+
+        // ═══════════════════════════════════════
+        // GRID
+        // ═══════════════════════════════════════
+        function drawGrid() {
+            const w = gridCanvas.width, h = gridCanvas.height;
+            gctx.clearRect(0, 0, w, h);
+            const sp = 34;
+            const ox = ((panX % sp) + sp) % sp;
+            const oy = ((panY % sp) + sp) % sp;
+            gctx.fillStyle = '#ccc';
+            for (let x = ox; x < w; x += sp)
+                for (let y = oy; y < h; y += sp) {
+                    gctx.beginPath(); gctx.arc(x, y, 1.2, 0, Math.PI * 2); gctx.fill();
+                }
+        }
+
+        // ═══════════════════════════════════════
+        // COORDS
+        // ═══════════════════════════════════════
+        function toWorld(sx, sy) { return [sx - panX, sy - panY]; }
+        function toScreen(wx, wy) { return [wx + panX, wy + panY]; }
+
+        // ═══════════════════════════════════════
+        // STROKE RENDERING
+        // ═══════════════════════════════════════
+        function redrawAll() {
+            ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            for (const s of strokes) renderStroke(ctx, s);
+            if (activeStroke) renderStroke(ctx, activeStroke);
+        }
+
+        function renderStroke(c, s) {
+            if (s.points.length < 2) return;
+            c.save();
+            c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = s.width;
+            if (s.eraser) {
+                c.globalCompositeOperation = 'destination-out';
+                c.strokeStyle = 'rgba(0,0,0,1)';
+            } else {
+                c.globalCompositeOperation = 'source-over';
+                c.strokeStyle = s.color;
+            }
+            c.beginPath();
+            const [x0, y0] = toScreen(s.points[0].x, s.points[0].y);
+            c.moveTo(x0, y0);
+            for (let i = 1; i < s.points.length; i++) {
+                const [x, y] = toScreen(s.points[i].x, s.points[i].y);
+                c.lineTo(x, y);
+            }
+            c.stroke(); c.restore();
+        }
+
+        // ═══════════════════════════════════════
+        // STROKE BOUNDING BOX
+        // ═══════════════════════════════════════
+        function strokeBBox(s) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const p of s.points) {
+                if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
+                if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y;
+            }
+            const pad = s.width / 2 + 2;
+            return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 };
+        }
+
+        // ═══════════════════════════════════════
+        // SELECTION OVERLAY
+        // ═══════════════════════════════════════
+        const HANDLE_R = 14;  // handle radius in screen px
+
+        function drawSelection() {
+            sctx.clearRect(0, 0, selCanvas.width, selCanvas.height);
+            if (!selectedStroke) return;
+            const bb = strokeBBox(selectedStroke);
+            const [sx, sy] = toScreen(bb.x, bb.y);
+            const sw = bb.w, sh = bb.h;
+
+            // dashed box
+            sctx.save();
+            sctx.strokeStyle = '#e63030';
+            sctx.lineWidth = 1.5;
+            sctx.setLineDash([5, 4]);
+            sctx.strokeRect(sx, sy, sw, sh);
+            sctx.setLineDash([]);
+
+            // corner handles: TL, TR, BL, BR
+            const corners = [
+                [sx, sy], [sx + sw, sy], [sx, sy + sh], [sx + sw, sy + sh]
+            ];
+            for (const [cx, cy] of corners) {
+                sctx.beginPath(); sctx.arc(cx, cy, HANDLE_R, 0, Math.PI * 2);
+                sctx.fillStyle = '#fff'; sctx.fill();
+                sctx.strokeStyle = '#e63030'; sctx.lineWidth = 2; sctx.stroke();
+            }
+            sctx.restore();
+        }
+
+        // returns which corner handle (0=TL,1=TR,2=BL,3=BR) was hit, or -1
+        function hitHandle(sx, sy) {
+            if (!selectedStroke) return -1;
+            const bb = strokeBBox(selectedStroke);
+            const [bsx, bsy] = toScreen(bb.x, bb.y);
+            const corners = [
+                [bsx, bsy], [bsx + bb.w, bsy],
+                [bsx, bsy + bb.h], [bsx + bb.w, bsy + bb.h]
+            ];
+            for (let i = 0; i < corners.length; i++) {
+                const dx = sx - corners[i][0], dy = sy - corners[i][1];
+                if (Math.hypot(dx, dy) <= HANDLE_R + 6) return i;
+            }
+            return -1;
+        }
+
+        // hit-test a screen point against all strokes, returns stroke or null
+        function hitStroke(sx, sy) {
+            const [wx, wy] = toWorld(sx, sy);
+            // iterate newest first
+            for (let i = strokes.length - 1; i >= 0; i--) {
+                const s = strokes[i];
+                const bb = strokeBBox(s);
+                if (wx >= bb.x && wx <= bb.x + bb.w && wy >= bb.y && wy <= bb.y + bb.h) {
+                    // fine test: distance to any segment
+                    const thresh = Math.max(s.width / 2 + 8, 12);
+                    for (let j = 1; j < s.points.length; j++) {
+                        const p1 = s.points[j - 1], p2 = s.points[j];
+                        if (distToSegment(wx, wy, p1.x, p1.y, p2.x, p2.y) <= thresh) return s;
+                    }
+                }
+            }
+            return null;
+        }
+
+        function distToSegment(px, py, ax, ay, bx, by) {
+            const dx = bx - ax, dy = by - ay;
+            const lenSq = dx * dx + dy * dy;
+            if (lenSq === 0) return Math.hypot(px - ax, py - ay);
+            let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+            return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+        }
+
+        // ═══════════════════════════════════════
+        // PAN  (vertical only, downward)
+        // ═══════════════════════════════════════
+        function applyPan(_, ny) {
+            panX = 0;
+            panY = Math.min(0, ny);
+            layer.style.transform = `translate(0px,${panY}px)`;
+            redrawAll(); drawGrid(); drawSelection();
+            panInfo.textContent = `↓ ${Math.round(-panY)}px`;
+        }
+
+        // ═══════════════════════════════════════
+        // POINTER HANDLING
+        // ═══════════════════════════════════════
+        const ptrs = {};
+        let panOrigin = null;
+        let pinchBase = null;
+        let drawActive = false;
+        let tapDown = null;
+
+        // stroke move/resize state
+        let strokeDrag = null;   // {origPoints, sx, sy}
+        let strokeResize = null;   // {origPoints, bbox, corner, sx, sy}
+
+        function wpos(e) {
+            const r = workspace.getBoundingClientRect();
+            return { x: e.clientX - r.left, y: e.clientY - r.top };
+        }
+
+        workspace.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            workspace.setPointerCapture(e.pointerId);
+            ptrs[e.pointerId] = wpos(e);
+            const pids = Object.keys(ptrs);
+            const pos = ptrs[e.pointerId];
+
+            // two-finger: pan (and cancel draw/stroke ops)
+            if (pids.length >= 2) {
+                drawActive = false; activeStroke = null; strokeDrag = null; strokeResize = null;
+                redrawAll();
+                const vals = Object.values(ptrs);
+                pinchBase = { cy: (vals[0].y + vals[1].y) / 2, panY };
+                panOrigin = null;
+                return;
+            }
+
+            tapDown = { x: pos.x, y: pos.y };
+
+            // DRAW mode
+            if (mode === 'draw') {
+                drawActive = true;
+                const [wx, wy] = toWorld(pos.x, pos.y);
+                activeStroke = {
+                    color: isErasing ? '#000' : drawColor.value,
+                    width: isErasing ? parseFloat(brushSz.value) * 3 : parseFloat(brushSz.value),
+                    eraser: isErasing,
+                    points: [{ x: wx, y: wy }]
+                };
+                return;
+            }
+
+            // GRAB mode
+            if (mode === null) {
+                // check handle first
+                const h = hitHandle(pos.x, pos.y);
+                if (h !== -1 && selectedStroke) {
+                    const bb = strokeBBox(selectedStroke);
+                    strokeResize = {
+                        origPoints: selectedStroke.points.map(p => ({ ...p })),
+                        bb, corner: h, sx: pos.x, sy: pos.y
+                    };
+                    return;
+                }
+
+                // check stroke hit
+                const hit = hitStroke(pos.x, pos.y);
+                if (hit) {
+                    selectedStroke = hit;
+                    strokeDrag = {
+                        origPoints: hit.points.map(p => ({ ...p })),
+                        sx: pos.x, sy: pos.y
+                    };
+                    strokeDelBtn.classList.add('show');
+                    drawSelection();
+                    return;
+                }
+
+                // deselect + pan
+                selectedStroke = null; strokeDrag = null; strokeResize = null;
+                strokeDelBtn.classList.remove('show');
+                drawSelection();
+                panOrigin = { y: pos.y, panY };
+            }
+
+            // TEXT mode: handled on pointerup
+        }, { passive: false });
+
+        workspace.addEventListener('pointermove', e => {
+            if (!(e.pointerId in ptrs)) return;
+            const pos = wpos(e);
+            ptrs[e.pointerId] = pos;
+            const pids = Object.keys(ptrs);
+
+            // two-finger pan
+            if (pids.length >= 2 && pinchBase) {
+                const vals = Object.values(ptrs);
+                const cy = (vals[0].y + vals[1].y) / 2;
+                applyPan(0, pinchBase.panY + cy - pinchBase.cy);
+                return;
+            }
+
+            // drawing
+            if (mode === 'draw' && drawActive && activeStroke) {
+                const [wx, wy] = toWorld(pos.x, pos.y);
+                activeStroke.points.push({ x: wx, y: wy });
+                redrawAll(); return;
+            }
+
+            // stroke drag (move)
+            if (strokeDrag && selectedStroke) {
+                const dx = pos.x - strokeDrag.sx;
+                const dy = pos.y - strokeDrag.sy;
+                selectedStroke.points = strokeDrag.origPoints.map(p => ({
+                    x: p.x + dx, y: p.y + dy
+                }));
+                redrawAll(); drawSelection(); return;
+            }
+
+            // stroke resize via handle
+            if (strokeResize && selectedStroke) {
+                const { origPoints, bb, corner, sx, sy } = strokeResize;
+                const dx = pos.x - sx, dy = pos.y - sy;
+
+                // anchor is the opposite corner in world coords
+                const anchors = [
+                    [bb.x + bb.w, bb.y + bb.h], // TL handle → anchor BR
+                    [bb.x, bb.y + bb.h], // TR handle → anchor BL
+                    [bb.x + bb.w, bb.y],        // BL handle → anchor TR
+                    [bb.x, bb.y]         // BR handle → anchor TL
+                ];
+                const [ax, ay] = anchors[corner];
+
+                // original dragged-corner world pos
+                const origCorners = [
+                    [bb.x, bb.y],
+                    [bb.x + bb.w, bb.y],
+                    [bb.x, bb.y + bb.h],
+                    [bb.x + bb.w, bb.y + bb.h]
+                ];
+                const [ocx, ocy] = origCorners[corner];
+
+                // new corner pos (screen → world)
+                const [ncx, ncy] = toWorld(
+                    toScreen(ocx, ocy)[0] + dx,
+                    toScreen(ocx, ocy)[1] + dy
+                );
+
+                // scale factors (guard div-by-zero)
+                const origW = Math.abs(ocx - ax) || 1;
+                const origH = Math.abs(ocy - ay) || 1;
+                const newW = Math.abs(ncx - ax) || 0.001;
+                const newH = Math.abs(ncy - ay) || 0.001;
+                const scaleX = newW / origW;
+                const scaleY = newH / origH;
+
+                selectedStroke.points = origPoints.map(p => ({
+                    x: ax + (p.x - ax) * scaleX,
+                    y: ay + (p.y - ay) * scaleY
+                }));
+                redrawAll(); drawSelection(); return;
+            }
+
+            // pan
+            if (panOrigin) {
+                applyPan(0, panOrigin.panY + pos.y - panOrigin.y);
+            }
+        }, { passive: false });
+
+        workspace.addEventListener('pointerup', e => {
+            const pos = wpos(e);
+            delete ptrs[e.pointerId];
+            pinchBase = null;
+
+            // finish draw stroke
+            if (mode === 'draw' && drawActive && activeStroke) {
+                if (activeStroke.points.length < 2) {
+                    const p = activeStroke.points[0];
+                    activeStroke.points.push({ x: p.x + 0.5, y: p.y + 0.5 });
+                }
+                strokes.push(activeStroke);
+                activeStroke = null; drawActive = false;
+                redrawAll(); autoSave(); return;
+            }
+
+            // finish stroke drag/resize
+            if (strokeDrag || strokeResize) {
+                strokeDrag = null; strokeResize = null;
+                autoSave(); return;
+            }
+
+            // text tap
+            if (mode === 'text' && tapDown) {
+                const dx = pos.x - tapDown.x, dy = pos.y - tapDown.y;
+                if (Math.hypot(dx, dy) < 10) {
+                    addText(pos.x, pos.y);
+                    setMode(null);
+                }
+            }
+
+            panOrigin = null; drawActive = false; tapDown = null;
+        }, { passive: false });
+
+        workspace.addEventListener('pointercancel', e => {
+            delete ptrs[e.pointerId];
+            pinchBase = null; panOrigin = null;
+            drawActive = false; activeStroke = null; tapDown = null;
+            strokeDrag = null; strokeResize = null;
+            redrawAll();
+        });
+
+        // clear element selection on workspace tap
+        workspace.addEventListener('pointerdown', () => {
+            document.querySelectorAll('.el.selected').forEach(el => el.classList.remove('selected'));
+            const active = document.querySelector('.el-text[contenteditable="true"]');
+            if (active) active.blur();
+        }, { capture: true, passive: true });
+
+        // ═══════════════════════════════════════
+        // HINT
+        // ═══════════════════════════════════════
+        let hintTimer;
+        function showHint(msg) {
+            clearTimeout(hintTimer);
+            hint.textContent = msg;
+            hint.classList.add('show');
+            hintTimer = setTimeout(() => hint.classList.remove('show'), 2800);
+        }
+
+        // ═══════════════════════════════════════
+        // MODE
+        // ═══════════════════════════════════════
+        function setMode(m) {
+            if (m === 'grab') m = null;
+            if (mode === 'draw' && m !== 'draw') drawSheet.classList.remove('open');
+            mode = (mode === m && m !== null) ? null : m;
+
+            // deselect stroke when leaving grab
+            if (mode !== null) { selectedStroke = null; strokeDelBtn.classList.remove('show'); drawSelection(); }
+
+            btnGrab.classList.toggle('active', mode === null);
+            btnDraw.classList.toggle('active', mode === 'draw');
+            btnText.classList.toggle('active', mode === 'text');
+
+            if (mode === 'draw') {
+                doneBtn.classList.add('show');
+                btnDrawOpts.style.display = 'flex';
+                showHint('Draw freely • tap ⚙︎ for options');
+            } else if (mode === 'text') {
+                doneBtn.classList.remove('show');
+                btnDrawOpts.style.display = 'none';
+                drawSheet.classList.remove('open');
+                showHint('Tap anywhere to place text');
+            } else {
+                doneBtn.classList.remove('show');
+                btnDrawOpts.style.display = 'none';
+                showHint('Tap a stroke to select • Drag to move • Pinch corners to resize');
+            }
+        }
+
+        btnGrab.addEventListener('click', () => setMode('grab'));
+        btnDraw.addEventListener('click', () => setMode('draw'));
+        btnText.addEventListener('click', () => setMode('text'));
+
+        eraserBtn.addEventListener('click', () => {
+            isErasing = !isErasing;
+            eraserBtn.classList.toggle('active', isErasing);
+        });
+        clearBtn.addEventListener('click', () => {
+            strokes.length = 0; activeStroke = null;
+            selectedStroke = null; redrawAll(); drawSelection();
+        });
+        document.getElementById('sheet-handle').addEventListener('click', () => {
+            drawSheet.classList.remove('open');
+        });
+        btnDrawOpts.addEventListener('click', () => {
+            drawSheet.classList.toggle('open');
+            btnDrawOpts.classList.toggle('active', drawSheet.classList.contains('open'));
+        });
+
+        // Stroke delete button
+        strokeDelBtn.addEventListener('click', () => {
+            if (selectedStroke) {
+                const idx = strokes.indexOf(selectedStroke);
+                if (idx !== -1) strokes.splice(idx, 1);
+                selectedStroke = null;
+                strokeDelBtn.classList.remove('show');
+                redrawAll(); drawSelection(); autoSave();
+            }
+        });
+
+        // Done button
+        doneBtn.addEventListener('click', () => {
+            // if a text is being edited, blur it
+            const editingText = document.querySelector('.el-text[contenteditable="true"]');
+            if (editingText) { editingText.blur(); }
+            // switch back to grab
+            setMode('grab');
+        });
+
+        // ═══════════════════════════════════════
+        // IMAGE
+        // ═══════════════════════════════════════
+        btnImg.addEventListener('click', () => { setMode(null); fileIn.value = ''; fileIn.click(); });
+        fileIn.addEventListener('change', e => {
+            const f = e.target.files[0]; if (!f) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                const [wx, wy] = toWorld(workspace.clientWidth / 2 - 80, workspace.clientHeight / 2 - 80);
+                addImage(ev.target.result, wx, wy);  // store base64 so it can be saved
+                autoSave();
+            };
+            reader.readAsDataURL(f);
+            fileIn.value = '';
+            showHint('Drag to move • 2-finger pinch to resize');
+        });
+
+        // ═══════════════════════════════════════
+        // DELETE BUTTON
+        // ═══════════════════════════════════════
+        function addDelBtn(parent) {
+            const btn = document.createElement('div');
+            btn.className = 'del-btn'; btn.textContent = '×';
+            btn.addEventListener('pointerdown', e => {
+                e.stopPropagation();
+                parent.remove();
+                setTimeout(autoSave, 50);
+            });
+            parent.appendChild(btn);
+        }
+
+        // ═══════════════════════════════════════
+        // ADD TEXT
+        // ═══════════════════════════════════════
+        function addText(sx, sy) {
+            const [wx, wy] = toWorld(sx, sy);
+            const el = document.createElement('div');
+            el.className = 'el el-text editing';
+            el.contentEditable = 'true';
+            el.style.left = wx + 'px';
+            el.style.top = wy + 'px';
+            el.style.fontSize = '18px';
+            el.style.zIndex = ++zTop;
+            addDelBtn(el);
+            layer.appendChild(el);
+            doneBtn.classList.add('show');
+
+            setTimeout(() => {
+                el.focus();
+                const range = document.createRange();
+                range.selectNodeContents(el); range.collapse(false);
+                const sel = window.getSelection();
+                sel.removeAllRanges(); sel.addRange(range);
+            }, 80);
+
+            function finishEdit() {
+                el.contentEditable = 'false';
+                el.classList.remove('editing');
+                doneBtn.classList.remove('show');
+                if (!el.textContent.trim()) { el.remove(); autoSave(); return; }
+                makeDraggable(el);
+                makePinchFontResize(el);
+                autoSave();
+            }
+
+            el.addEventListener('blur', finishEdit);
+            el.addEventListener('keydown', ev => { if (ev.key === 'Escape') el.blur(); });
+
+            let lastTap = 0;
+            el.addEventListener('touchend', () => {
+                const now = Date.now();
+                if (now - lastTap < 320) {
+                    el.contentEditable = 'true';
+                    el.classList.add('editing');
+                    el.style.zIndex = ++zTop;
+                    doneBtn.classList.add('show');
+                    setTimeout(() => el.focus(), 30);
+                }
+                lastTap = now;
+            });
+            el.addEventListener('dblclick', () => {
+                el.contentEditable = 'true';
+                el.classList.add('editing');
+                el.style.zIndex = ++zTop;
+                doneBtn.classList.add('show');
+                el.focus();
+            });
+        }
+
+        // ═══════════════════════════════════════
+        // TEXT PINCH — resize font size
+        // ═══════════════════════════════════════
+        function makePinchFontResize(el) {
+            const tPtrs = {};
+            let pinchStartDist = null, pinchStartSize = null;
+
+            function tDist() {
+                const pts = Object.values(tPtrs);
+                if (pts.length < 2) return null;
+                return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            }
+
+            el.addEventListener('pointerdown', e => {
+                tPtrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+                if (Object.keys(tPtrs).length === 2) {
+                    e.stopPropagation();
+                    pinchStartDist = tDist();
+                    pinchStartSize = parseFloat(el.style.fontSize) || 18;
+                }
+            });
+
+            el.addEventListener('pointermove', e => {
+                if (!(e.pointerId in tPtrs)) return;
+                tPtrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+                if (Object.keys(tPtrs).length >= 2 && pinchStartDist) {
+                    e.stopPropagation(); e.preventDefault();
+                    const scale = tDist() / pinchStartDist;
+                    const newSize = Math.max(8, Math.min(120, pinchStartSize * scale));
+                    el.style.fontSize = newSize + 'px';
+                }
+            }, { passive: false });
+
+            function endTPinch(e) {
+                delete tPtrs[e.pointerId];
+                if (Object.keys(tPtrs).length < 2) pinchStartDist = null;
+            }
+            el.addEventListener('pointerup', endTPinch);
+            el.addEventListener('pointercancel', endTPinch);
+        }
+
+        // ═══════════════════════════════════════
+        // ADD IMAGE
+        // ═══════════════════════════════════════
+        function addImage(url, wx, wy, w, h) {
+            const wrap = document.createElement('div');
+            wrap.className = 'el el-img';
+            wrap.style.left = wx + 'px'; wrap.style.top = wy + 'px';
+            wrap.style.zIndex = ++zTop;
+
+            const img = document.createElement('img');
+            img.src = url; img.draggable = false;
+            if (w) { img.style.width = w; img.style.maxWidth = 'none'; }
+            if (h) { img.style.height = h; img.style.maxHeight = 'none'; }
+
+            wrap.appendChild(img);
+            addDelBtn(wrap);
+            layer.appendChild(wrap);
+
+            makeDraggable(wrap);
+            makeImgPinchResize(wrap, img);
+        }
+
+        // ═══════════════════════════════════════
+        // DRAG — pointer capture, no hold delay
+        // ═══════════════════════════════════════
+        function makeDraggable(el) {
+            let pid = null, sx, sy, ox, oy;
+
+            el.addEventListener('pointerdown', e => {
+                if (e.target.classList.contains('del-btn')) return;
+                if (el.contentEditable === 'true') return;
+                e.stopPropagation();
+                el.classList.add('selected');
+                pid = e.pointerId;
+                el.setPointerCapture(pid);
+                sx = e.clientX; sy = e.clientY;
+                ox = parseFloat(el.style.left) || 0;
+                oy = parseFloat(el.style.top) || 0;
+                el.style.zIndex = ++zTop;
+            });
+
+            el.addEventListener('pointermove', e => {
+                if (e.pointerId !== pid) return;
+                e.stopPropagation();
+                el.style.left = (ox + e.clientX - sx) + 'px';
+                el.style.top = (oy + e.clientY - sy) + 'px';
+            });
+
+            el.addEventListener('pointerup', e => { if (e.pointerId === pid) pid = null; });
+            el.addEventListener('pointercancel', () => { pid = null; });
+        }
+
+        // ═══════════════════════════════════════
+        // IMAGE PINCH RESIZE
+        // ═══════════════════════════════════════
+        function makeImgPinchResize(wrap, img) {
+            const iPtrs = {};
+            let pinchStartDist = null, pinchStartW = null, pinchStartH = null;
+
+            function iDist() {
+                const pts = Object.values(iPtrs);
+                if (pts.length < 2) return null;
+                return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            }
+
+            wrap.addEventListener('pointerdown', e => {
+                iPtrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+                if (Object.keys(iPtrs).length === 2) {
+                    e.stopPropagation();
+                    pinchStartDist = iDist();
+                    pinchStartW = img.offsetWidth;
+                    pinchStartH = img.offsetHeight;
+                }
+            });
+
+            wrap.addEventListener('pointermove', e => {
+                if (!(e.pointerId in iPtrs)) return;
+                iPtrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+                if (Object.keys(iPtrs).length >= 2 && pinchStartDist) {
+                    e.stopPropagation(); e.preventDefault();
+                    const scale = iDist() / pinchStartDist;
+                    img.style.width = Math.max(40, pinchStartW * scale) + 'px';
+                    img.style.height = Math.max(40, pinchStartH * scale) + 'px';
+                    img.style.maxWidth = img.style.maxHeight = 'none';
+                }
+            }, { passive: false });
+
+            function endIPinch(e) {
+                delete iPtrs[e.pointerId];
+                if (Object.keys(iPtrs).length < 2) pinchStartDist = null;
+            }
+            wrap.addEventListener('pointerup', endIPinch);
+            wrap.addEventListener('pointercancel', endIPinch);
+        }
+
+        // ═══════════════════════════════════════
+        // SAVE / LOAD  (localStorage)
+        // ═══════════════════════════════════════
+        const SAVE_KEY = 'longg_canvas_v1';
+        let saveTimer = null;
+
+        function autoSave() {
+            clearTimeout(saveTimer);
+            autosaveDot.className = 'saving';
+            saveTimer = setTimeout(() => {
+                saveAll();
+                autosaveDot.className = 'saved';
+                setTimeout(() => { autosaveDot.className = ''; }, 1400);
+            }, 600);
+        }
+
+        function saveAll() {
+            // collect elements
+            const els = [];
+            layer.querySelectorAll('.el').forEach(el => {
+                if (el.classList.contains('el-text')) {
+                    els.push({
+                        type: 'text',
+                        x: parseFloat(el.style.left) || 0,
+                        y: parseFloat(el.style.top) || 0,
+                        fontSize: el.style.fontSize || '18px',
+                        color: el.style.color || '#111',
+                        content: el.innerText
+                    });
+                } else if (el.classList.contains('el-img')) {
+                    const img = el.querySelector('img');
+                    if (!img) return;
+                    // only save if it's already base64 (blob URLs are temporary)
+                    const src = img.src;
+                    if (!src.startsWith('data:')) return;
+                    els.push({
+                        type: 'image',
+                        x: parseFloat(el.style.left) || 0,
+                        y: parseFloat(el.style.top) || 0,
+                        w: img.style.width || img.offsetWidth + 'px',
+                        h: img.style.height || '',
+                        src
+                    });
+                }
+            });
+
+            const data = { strokes, panY, els };
+            try {
+                localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+            } catch (e) {
+                showSaveToast('⚠ Storage full');
+            }
+        }
+
+        function loadAll() {
+            let raw;
+            try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { return; }
+            if (!raw) return;
+            let data;
+            try { data = JSON.parse(raw); } catch (e) { return; }
+
+            // restore strokes
+            if (Array.isArray(data.strokes)) {
+                strokes.length = 0;
+                data.strokes.forEach(s => strokes.push(s));
+            }
+
+            // restore pan
+            if (typeof data.panY === 'number') {
+                panX = 0; panY = data.panY;
+                layer.style.transform = `translate(0px,${panY}px)`;
+                panInfo.textContent = `↓ ${Math.round(-panY)}px`;
+            }
+
+            // restore elements
+            if (Array.isArray(data.els)) {
+                data.els.forEach(d => {
+                    if (d.type === 'text') {
+                        const el = document.createElement('div');
+                        el.className = 'el el-text';
+                        el.style.left = d.x + 'px'; el.style.top = d.y + 'px';
+                        el.style.fontSize = d.fontSize || '18px';
+                        el.style.color = d.color || '#111';
+                        el.innerText = d.content;
+                        el.contentEditable = 'false';
+                        el.style.zIndex = ++zTop;
+                        addDelBtn(el);
+                        layer.appendChild(el);
+                        makeDraggable(el);
+                        makePinchFontResize(el);
+                        // re-edit on double-tap / dblclick
+                        let lastTap = 0;
+                        el.addEventListener('touchend', () => {
+                            const now = Date.now();
+                            if (now - lastTap < 320) openTextEdit(el);
+                            lastTap = now;
+                        });
+                        el.addEventListener('dblclick', () => openTextEdit(el));
+                    } else if (d.type === 'image') {
+                        addImage(d.src, d.x, d.y, d.w, d.h);
+                    }
+                });
+            }
+            redrawAll(); drawGrid();
+        }
+
+        function openTextEdit(el) {
+            el.contentEditable = 'true';
+            el.classList.add('editing');
+            el.style.zIndex = ++zTop;
+            doneBtn.classList.add('show');
+            setTimeout(() => el.focus(), 30);
+            el.addEventListener('blur', function onBlur() {
+                el.removeEventListener('blur', onBlur);
+                el.contentEditable = 'false';
+                el.classList.remove('editing');
+                doneBtn.classList.remove('show');
+                if (!el.textContent.trim()) { el.remove(); }
+                autoSave();
+            }, { once: true });
+        }
+
+        function showSaveToast(msg) {
+            clearTimeout(showSaveToast._t);
+            saveToast.textContent = msg;
+            saveToast.classList.add('show');
+            showSaveToast._t = setTimeout(() => saveToast.classList.remove('show'), 2000);
+        }
+
+        // Manual save button
+        btnSave.addEventListener('click', () => {
+            saveAll();
+            showSaveToast('✓ Saved');
+        });
+
+        // ═══════════════════════════════════════
+        // INIT
+        // ═══════════════════════════════════════
+        layer.style.transform = 'translate(0px,0px)';
+        resizeCanvases();
+        loadAll();
+        showHint('Drag to scroll • Draw • Add text & images');
+    </script>
+</body>
+
+</html>
