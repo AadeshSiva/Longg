@@ -1051,7 +1051,7 @@
 
         const ptrs = {};
         let panOrigin = null, pinchBase = null, drawActive = false, tapDown = null;
-        let strokeDrag = null, strokeResize = null;
+        let strokeDrag = null, strokeResize = null, strokeHoldTimer = null;
 
         function wpos(e) {
             const r = workspace.getBoundingClientRect();
@@ -1066,7 +1066,9 @@
             const pos = ptrs[e.pointerId];
 
             if (pids.length >= 2) {
-                drawActive = false; activeStroke = null; strokeDrag = null; strokeResize = null;
+                drawActive = false; activeStroke = null;
+                clearTimeout(strokeHoldTimer); strokeHoldTimer = null;
+                strokeDrag = null; strokeResize = null;
                 redrawAll();
                 const vals = Object.values(ptrs);
                 pinchBase = { cy: (vals[0].y + vals[1].y) / 2, panY };
@@ -1098,9 +1100,12 @@
                 const hit = hitStroke(pos.x, pos.y);
                 if (hit && !hit.eraser) {
                     selectedStroke = hit;
-                    strokeDrag = { origPoints: hit.points.map(p => ({ ...p })), sx: pos.x, sy: pos.y };
                     strokeDelBtn.classList.add('show');
                     drawSelection();
+                    // start hold timer — drag activates after 300ms
+                    strokeHoldTimer = setTimeout(() => {
+                        strokeDrag = { origPoints: selectedStroke.points.map(p => ({ ...p })), sx: pos.x, sy: pos.y };
+                    }, 300);
                     return;
                 }
                 selectedStroke = null; strokeDrag = null; strokeResize = null;
@@ -1167,6 +1172,7 @@
                 redrawAll(); pushHistory(); return;
             }
 
+            clearTimeout(strokeHoldTimer); strokeHoldTimer = null;
             if (strokeDrag || strokeResize) { strokeDrag = null; strokeResize = null; pushHistory(); return; }
 
             if (mode === 'text' && tapDown) {
@@ -1181,6 +1187,7 @@
             delete ptrs[e.pointerId];
             pinchBase = null; panOrigin = null;
             drawActive = false; activeStroke = null; tapDown = null;
+            clearTimeout(strokeHoldTimer); strokeHoldTimer = null;
             strokeDrag = null; strokeResize = null;
             redrawAll();
         });
@@ -1267,13 +1274,15 @@
             const f = e.target.files[0]; if (!f) return;
             const reader = new FileReader();
             reader.onload = ev => {
-                const [wx, wy] = toWorld(workspace.clientWidth / 2 - 80, workspace.clientHeight / 2 - 80);
+                // place at center of visible viewport
+                const vw = workspace.clientWidth, vh = workspace.clientHeight;
+                const [wx, wy] = toWorld(vw / 2 - 80, vh / 2 - 80);
                 addImage(ev.target.result, wx, wy);
                 pushHistory();
             };
             reader.readAsDataURL(f);
             fileIn.value = '';
-            showHint('Drag to move • 2-finger pinch to resize');
+            showHint('Press & hold to move • 2-finger pinch to resize');
         });
 
         function addDelBtn(parent) {
@@ -1353,18 +1362,52 @@
 
         function makeDraggable(el) {
             let pid = null, sx, sy, ox, oy;
+            let holdTimer = null, dragging = false;
+
             el.addEventListener('pointerdown', e => {
                 if (e.target.classList.contains('del-btn')) return;
                 if (el.contentEditable === 'true') return;
-                e.stopPropagation(); el.classList.add('selected');
-                pid = e.pointerId; el.setPointerCapture(pid);
+                e.stopPropagation();
+                el.classList.add('selected');
+                pid = e.pointerId;
                 sx = e.clientX; sy = e.clientY;
                 ox = parseFloat(el.style.left) || 0; oy = parseFloat(el.style.top) || 0;
                 el.style.zIndex = ++zTop;
+                dragging = false;
+                // start hold timer — 300ms before drag activates
+                holdTimer = setTimeout(() => {
+                    dragging = true;
+                    el.setPointerCapture(pid);
+                    el.style.opacity = '0.85';
+                    el.style.transform = 'scale(1.04)';
+                }, 300);
             });
-            el.addEventListener('pointermove', e => { if (e.pointerId !== pid) return; e.stopPropagation(); el.style.left = (ox + e.clientX - sx) + 'px'; el.style.top = (oy + e.clientY - sy) + 'px'; });
-            el.addEventListener('pointerup', e => { if (e.pointerId === pid) pid = null; });
-            el.addEventListener('pointercancel', () => { pid = null; });
+
+            el.addEventListener('pointermove', e => {
+                if (e.pointerId !== pid) return;
+                // if finger moved more than 8px before hold, cancel the hold
+                if (!dragging) {
+                    const dx = e.clientX - sx, dy = e.clientY - sy;
+                    if (Math.hypot(dx, dy) > 8) { clearTimeout(holdTimer); holdTimer = null; pid = null; return; }
+                    return;
+                }
+                e.stopPropagation();
+                el.style.left = (ox + e.clientX - sx) + 'px';
+                el.style.top = (oy + e.clientY - sy) + 'px';
+            });
+
+            el.addEventListener('pointerup', e => {
+                if (e.pointerId !== pid) return;
+                clearTimeout(holdTimer); holdTimer = null;
+                pid = null; dragging = false;
+                el.style.opacity = ''; el.style.transform = '';
+            });
+
+            el.addEventListener('pointercancel', () => {
+                clearTimeout(holdTimer); holdTimer = null;
+                pid = null; dragging = false;
+                el.style.opacity = ''; el.style.transform = '';
+            });
         }
 
         function makeImgPinchResize(wrap, img) {
