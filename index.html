@@ -377,9 +377,9 @@
             left: 50%;
             transform: translateX(-50%);
             font-size: 11px;
-            color: #000000;
-            pointer-events: all;
-            z-index: 2000;
+            color: #999;
+            pointer-events: none;
+            z-index: 9999;
             white-space: nowrap;
             user-select: none;
         }
@@ -388,6 +388,7 @@
             color: var(--red);
             text-decoration: none;
             font-weight: 500;
+            pointer-events: all;
         }
 
         #footer a:hover {
@@ -472,6 +473,11 @@
             opacity: 0.8;
             transform: scale(0.96);
         }
+
+        .tool-btn:disabled {
+            opacity: 0.3;
+            cursor: default;
+        }
     </style>
 </head>
 
@@ -496,13 +502,19 @@
                     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                 </svg>
             </button>
-            <button class="tool-btn" id="btn-draw-opts" title="Draw options" style="display:none">
+
+            <button class="tool-btn" id="btn-undo" title="Undo">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
-                    <line x1="12" y1="2" x2="12" y2="5" />
-                    <line x1="12" y1="19" x2="12" y2="22" />
+                    <path d="M3 7v6h6" />
+                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+                </svg>
+            </button>
+            <button class="tool-btn" id="btn-redo" title="Redo">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 7v6h-6" />
+                    <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13" />
                 </svg>
             </button>
             <button class="tool-btn" id="btn-text" title="Text">
@@ -537,7 +549,7 @@
         </div>
         <div class="sheet-row">
             <button class="sheet-btn" id="eraser-btn">⌫ Eraser</button>
-            <button class="sheet-btn" id="clear-btn">✕ Clear all</button>
+            <button class="sheet-btn" id="clear-btn">✕ Clear last</button>
         </div>
     </div>
 
@@ -578,12 +590,13 @@
         const btnDraw = document.getElementById('btn-draw');
         const btnText = document.getElementById('btn-text');
         const btnImg = document.getElementById('btn-img');
-        const btnDrawOpts = document.getElementById('btn-draw-opts');
         const saveToast = document.getElementById('save-toast');
         const autosaveDot = document.getElementById('autosave-dot');
         const fileIn = document.getElementById('file-in');
         const doneBtn = document.getElementById('done-btn');
         const strokeDelBtn = document.getElementById('stroke-del-btn');
+        const btnUndo = document.getElementById('btn-undo');
+        const btnRedo = document.getElementById('btn-redo');
 
         function resizeCanvases() {
             const w = workspace.clientWidth, h = workspace.clientHeight;
@@ -828,10 +841,10 @@
                 }
                 strokes.push(activeStroke);
                 activeStroke = null; drawActive = false;
-                redrawAll(); autoSave(); return;
+                redrawAll(); pushHistory(); return;
             }
 
-            if (strokeDrag || strokeResize) { strokeDrag = null; strokeResize = null; autoSave(); return; }
+            if (strokeDrag || strokeResize) { strokeDrag = null; strokeResize = null; pushHistory(); return; }
 
             if (mode === 'text' && tapDown) {
                 const dx = pos.x - tapDown.x, dy = pos.y - tapDown.y;
@@ -873,31 +886,42 @@
             btnText.classList.toggle('active', mode === 'text');
             if (mode === 'draw') {
                 doneBtn.classList.add('show');
-                btnDrawOpts.style.display = 'flex';
-                showHint('Draw freely');
+                showHint('Tap draw button again to open tools');
             } else if (mode === 'text') {
                 doneBtn.classList.remove('show');
-                btnDrawOpts.style.display = 'none';
                 drawSheet.classList.remove('open');
                 showHint('Tap anywhere to place text');
             } else {
                 doneBtn.classList.remove('show');
-                btnDrawOpts.style.display = 'none';
+                drawSheet.classList.remove('open');
                 showHint('Tap a stroke to select');
             }
         }
 
         btnGrab.addEventListener('click', () => setMode('grab'));
-        btnDraw.addEventListener('click', () => setMode('draw'));
+        btnDraw.addEventListener('click', () => {
+            if (mode === 'draw') {
+                // already in draw mode — toggle sheet open/close
+                drawSheet.classList.toggle('open');
+            } else {
+                setMode('draw');
+                drawSheet.classList.add('open');  // open sheet on first click
+            }
+        });
         btnText.addEventListener('click', () => setMode('text'));
 
         eraserBtn.addEventListener('click', () => { isErasing = !isErasing; eraserBtn.classList.toggle('active', isErasing); });
-        clearBtn.addEventListener('click', () => { strokes.length = 0; activeStroke = null; selectedStroke = null; redrawAll(); drawSelection(); });
-        document.getElementById('sheet-handle').addEventListener('click', () => { drawSheet.classList.remove('open'); });
-        btnDrawOpts.addEventListener('click', () => {
-            drawSheet.classList.toggle('open');
-            btnDrawOpts.classList.toggle('active', drawSheet.classList.contains('open'));
+        clearBtn.addEventListener('click', () => {
+            if (strokes.length === 0) return;
+            strokes.pop();   // remove only the most recent stroke
+            if (selectedStroke && !strokes.includes(selectedStroke)) {
+                selectedStroke = null;
+                strokeDelBtn.classList.remove('show');
+            }
+            redrawAll(); drawSelection();
+            pushHistory();
         });
+        document.getElementById('sheet-handle').addEventListener('click', () => { drawSheet.classList.remove('open'); });
 
         strokeDelBtn.addEventListener('click', () => {
             if (selectedStroke) {
@@ -905,7 +929,7 @@
                 if (idx !== -1) strokes.splice(idx, 1);
                 selectedStroke = null;
                 strokeDelBtn.classList.remove('show');
-                redrawAll(); drawSelection(); autoSave();
+                redrawAll(); drawSelection(); pushHistory();
             }
         });
 
@@ -922,7 +946,7 @@
             reader.onload = ev => {
                 const [wx, wy] = toWorld(workspace.clientWidth / 2 - 80, workspace.clientHeight / 2 - 80);
                 addImage(ev.target.result, wx, wy);
-                autoSave();
+                pushHistory();
             };
             reader.readAsDataURL(f);
             fileIn.value = '';
@@ -932,7 +956,7 @@
         function addDelBtn(parent) {
             const btn = document.createElement('div');
             btn.className = 'del-btn'; btn.textContent = '×';
-            btn.addEventListener('pointerdown', e => { e.stopPropagation(); parent.remove(); setTimeout(autoSave, 50); });
+            btn.addEventListener('pointerdown', e => { e.stopPropagation(); parent.remove(); setTimeout(pushHistory, 50); });
             parent.appendChild(btn);
         }
 
@@ -959,8 +983,8 @@
                 el.contentEditable = 'false';
                 el.classList.remove('editing');
                 doneBtn.classList.remove('show');
-                if (!el.textContent.trim()) { el.remove(); autoSave(); return; }
-                makeDraggable(el); makePinchFontResize(el); autoSave();
+                if (!el.textContent.trim()) { el.remove(); pushHistory(); return; }
+                makeDraggable(el); makePinchFontResize(el); pushHistory();
             }
 
             el.addEventListener('blur', finishEdit);
@@ -1036,21 +1060,10 @@
             wrap.addEventListener('pointerup', endIPinch); wrap.addEventListener('pointercancel', endIPinch);
         }
 
-        // SAVE / LOAD
-        const SAVE_KEY = 'longg_canvas_v1';
-        let saveTimer = null;
-
-        function autoSave() {
-            clearTimeout(saveTimer);
-            autosaveDot.className = 'saving';
-            saveTimer = setTimeout(() => {
-                saveAll();
-                autosaveDot.className = 'saved';
-                setTimeout(() => { autosaveDot.className = ''; }, 1400);
-            }, 600);
-        }
-
-        function saveAll() {
+        // ═══════════════════════════════════════
+        // SNAPSHOT HELPERS
+        // ═══════════════════════════════════════
+        function snapshotEls() {
             const els = [];
             layer.querySelectorAll('.el').forEach(el => {
                 if (el.classList.contains('el-text')) {
@@ -1058,50 +1071,143 @@
                 } else if (el.classList.contains('el-img')) {
                     const img = el.querySelector('img');
                     if (!img) return;
-                    const src = img.src;
-                    if (!src.startsWith('data:')) return;
-                    els.push({ type: 'image', x: parseFloat(el.style.left) || 0, y: parseFloat(el.style.top) || 0, w: img.style.width || img.offsetWidth + 'px', h: img.style.height || '', src });
+                    if (!img.src.startsWith('data:')) return;
+                    els.push({ type: 'image', x: parseFloat(el.style.left) || 0, y: parseFloat(el.style.top) || 0, w: img.style.width || img.offsetWidth + 'px', h: img.style.height || '', src: img.src });
                 }
             });
-            const data = { strokes, panY, els };
-            try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }
-            catch (e) { showSaveToast('⚠ Storage full'); }
+            return { strokes: JSON.parse(JSON.stringify(strokes)), panY, els };
         }
 
-        function loadAll() {
-            let raw;
-            try { raw = localStorage.getItem(SAVE_KEY); } catch (e) { return; }
-            if (!raw) return;
-            let data;
-            try { data = JSON.parse(raw); } catch (e) { return; }
+        function restoreSnapshot(snap) {
+            // restore strokes
+            strokes.length = 0;
+            snap.strokes.forEach(s => strokes.push(s));
 
-            if (Array.isArray(data.strokes)) { strokes.length = 0; data.strokes.forEach(s => strokes.push(s)); }
-
-            if (typeof data.panY === 'number') {
-                panX = 0; panY = data.panY;
+            // restore pan
+            if (typeof snap.panY === 'number') {
+                panX = 0; panY = snap.panY;
                 layer.style.transform = `translate(0px,${panY}px)`;
                 panInfo.textContent = `↓ ${Math.round(-panY)}px`;
             }
 
-            if (Array.isArray(data.els)) {
-                data.els.forEach(d => {
-                    if (d.type === 'text') {
-                        const el = document.createElement('div');
-                        el.className = 'el el-text';
-                        el.style.left = d.x + 'px'; el.style.top = d.y + 'px';
-                        el.style.fontSize = d.fontSize || '18px'; el.style.color = d.color || '#111';
-                        el.innerText = d.content; el.contentEditable = 'false'; el.style.zIndex = ++zTop;
-                        addDelBtn(el); layer.appendChild(el);
-                        makeDraggable(el); makePinchFontResize(el);
-                        let lastTap = 0;
-                        el.addEventListener('touchend', () => { const now = Date.now(); if (now - lastTap < 320) openTextEdit(el); lastTap = now; });
-                        el.addEventListener('dblclick', () => openTextEdit(el));
-                    } else if (d.type === 'image') {
-                        addImage(d.src, d.x, d.y, d.w, d.h);
-                    }
+            // restore elements
+            layer.innerHTML = '';
+            snap.els.forEach(d => {
+                if (d.type === 'text') {
+                    const el = document.createElement('div');
+                    el.className = 'el el-text';
+                    el.style.left = d.x + 'px'; el.style.top = d.y + 'px';
+                    el.style.fontSize = d.fontSize || '18px'; el.style.color = d.color || '#111';
+                    el.innerText = d.content; el.contentEditable = 'false'; el.style.zIndex = ++zTop;
+                    addDelBtn(el); layer.appendChild(el);
+                    makeDraggable(el); makePinchFontResize(el);
+                    let lastTap = 0;
+                    el.addEventListener('touchend', () => { const now = Date.now(); if (now - lastTap < 320) openTextEdit(el); lastTap = now; });
+                    el.addEventListener('dblclick', () => openTextEdit(el));
+                } else if (d.type === 'image') {
+                    addImage(d.src, d.x, d.y, d.w, d.h);
+                }
+            });
+            redrawAll(); drawGrid(); drawSelection();
+        }
+
+        // ═══════════════════════════════════════
+        // UNDO / REDO
+        // ═══════════════════════════════════════
+        const MAX_HISTORY = 50;
+        let history = [];
+        let historyIdx = -1;
+
+        function pushHistory() {
+            // drop any redo states ahead
+            history = history.slice(0, historyIdx + 1);
+            history.push(snapshotEls());
+            if (history.length > MAX_HISTORY) history.shift();
+            historyIdx = history.length - 1;
+            updateUndoRedo();
+            autoSave();
+        }
+
+        function undo() {
+            if (historyIdx <= 0) return;
+            historyIdx--;
+            restoreSnapshot(history[historyIdx]);
+            updateUndoRedo();
+            autoSave();
+        }
+
+        function redo() {
+            if (historyIdx >= history.length - 1) return;
+            historyIdx++;
+            restoreSnapshot(history[historyIdx]);
+            updateUndoRedo();
+            autoSave();
+        }
+
+        function updateUndoRedo() {
+            btnUndo.disabled = historyIdx <= 0;
+            btnRedo.disabled = historyIdx >= history.length - 1;
+        }
+
+        btnUndo.addEventListener('click', undo);
+        btnRedo.addEventListener('click', redo);
+
+        // ═══════════════════════════════════════
+        // INDEXEDDB  SAVE / LOAD
+        // ═══════════════════════════════════════
+        const DB_NAME = 'longg_db';
+        const DB_VER = 1;
+        const STORE = 'canvas';
+        const RECORD = 'state';
+        let db = null;
+
+        function openDB() {
+            return new Promise((res, rej) => {
+                const req = indexedDB.open(DB_NAME, DB_VER);
+                req.onupgradeneeded = e => {
+                    e.target.result.createObjectStore(STORE);
+                };
+                req.onsuccess = e => { db = e.target.result; res(db); };
+                req.onerror = e => rej(e.target.error);
+            });
+        }
+
+        let saveTimer = null;
+        function autoSave() {
+            clearTimeout(saveTimer);
+            autosaveDot.className = 'saving';
+            saveTimer = setTimeout(() => {
+                saveAll().then(() => {
+                    autosaveDot.className = 'saved';
+                    setTimeout(() => { autosaveDot.className = ''; }, 1400);
                 });
-            }
-            redrawAll(); drawGrid();
+            }, 600);
+        }
+
+        function saveAll() {
+            if (!db) return Promise.resolve();
+            const data = snapshotEls();
+            return new Promise((res, rej) => {
+                const tx = db.transaction(STORE, 'readwrite');
+                tx.objectStore(STORE).put(data, RECORD);
+                tx.oncomplete = res;
+                tx.onerror = e => { showSaveToast('⚠ Save failed'); rej(e); };
+            });
+        }
+
+        function loadAll() {
+            if (!db) return Promise.resolve();
+            return new Promise(res => {
+                const tx = db.transaction(STORE, 'readonly');
+                const req = tx.objectStore(STORE).get(RECORD);
+                req.onsuccess = e => {
+                    const data = e.target.result;
+                    if (!data) { res(); return; }
+                    restoreSnapshot(data);
+                    res();
+                };
+                req.onerror = () => res();
+            });
         }
 
         function openTextEdit(el) {
@@ -1113,7 +1219,7 @@
                 el.contentEditable = 'false'; el.classList.remove('editing');
                 doneBtn.classList.remove('show');
                 if (!el.textContent.trim()) el.remove();
-                autoSave();
+                pushHistory();
             }, { once: true });
         }
 
@@ -1123,11 +1229,22 @@
             showSaveToast._t = setTimeout(() => saveToast.classList.remove('show'), 2000);
         }
 
-
+        // ═══════════════════════════════════════
         // INIT
+        // ═══════════════════════════════════════
         layer.style.transform = 'translate(0px,0px)';
         resizeCanvases();
-        loadAll();
+        updateUndoRedo();
+        openDB().then(() => {
+            return loadAll();
+        }).then(() => {
+            // seed initial history after load
+            history = [snapshotEls()];
+            historyIdx = 0;
+            updateUndoRedo();
+        }).catch(err => {
+            console.warn('IndexedDB error:', err);
+        });
         showHint('Drag to scroll • Draw • Add text & images');
     </script>
 </body>
